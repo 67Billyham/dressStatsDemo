@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>店铺销量趋势分析 | 高性能实现</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #3498db;
+            --primary-dark: #2980b9;
+            --success: #27ae60;
+            --danger: #e74c3c;
+            --light-bg: #f5f7fa;
+            --card-bg: #ffffff;
+            --border-color: #e1e8ef;
+            --text-primary: #2c3e50;
+            --text-secondary: #7f8c8d;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background-color: var(--light-bg);
+            padding: 20px;
+            min-height: 100vh;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 0 15px;
+        }
+        
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: var(--primary);
+            position: relative;
+            display: inline-block;
+            padding-bottom: 10px;
+        }
+        
+        h1:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 4px;
+            background: linear-gradient(to right, var(--primary), var(--primary-dark));
+            border-radius: 2px;
+        }
+        
+        .subtitle {
+            font-size: 16px;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .control-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            margin-bottom: 25px;
+            padding: 25px;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .input-group {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr auto;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .input-container {
+            position: relative;
+        }
+        
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+        
+        select, input {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 15px;
+            background-color: #f8fafc;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+        }
+        
+        .divider {
+            text-align: center;
+            font-weight: 600;
+            color: var(--text-secondary);
+            padding: 0 5px;
+        }
+        
+        button {
+            padding: 14px 25px;
+            background: linear-gradient(to right, var(--primary), var(--primary-dark));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
+            font-family: inherit;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(52, 152, 219, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .button-loader {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+        
+        @keyframes spin {
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        
+        .loading-spinner {
+            text-align: center;
+            padding: 40px 0;
+            display: none;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(52, 152, 219, 0.2);
+            border-top: 5px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        .loading-text {
+            font-size: 16px;
+            color: var(--text-secondary);
+        }
+        
+        #chart-container {
+            height: 500px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            margin-bottom: 25px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .chart-header {
+            padding: 20px 20px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .chart-info {
+            display: flex;
+            gap: 15px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            flex-wrap: wrap;
+        }
+        
+        .chart-content {
+            flex: 1;
+            min-height: 0;
+            padding: 15px;
+        }
+        
+        #salesChart {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.03);
+            border: 1px solid var(--border-color);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-card h3 {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 10px;
+        }
+        
+        .increase { color: var(--success); }
+        .decrease { color: var(--danger); }
+        
+        .stat-note {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        
+        .error-container {
+            display: none;
+            background: #fef2f2;
+            color: var(--danger);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        
+        .error-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .error-detail {
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        
+        .retry-button {
+            background: var(--danger);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 30px;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        @media (max-width: 768px) {
+            .input-group {
+                grid-template-columns: 1fr;
+                grid-template-areas: 
+                    "select"
+                    "divider"
+                    "input"
+                    "button";
+            }
+            
+            #shopSelect { grid-area: select; }
+            .divider { grid-area: divider; }
+            #shopIdInput { grid-area: input; }
+            button { grid-area: button; }
+            
+            .chart-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .chart-info {
+                justify-content: flex-start;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>店铺销量趋势分析</h1>
+            <p class="subtitle">直观展示每日销售数据，智能分析销量变化趋势</p>
+        </header>
+        
+        <!-- 错误提示容器 -->
+        <div class="error-container" id="errorContainer">
+            <div class="error-title">数据加载失败</div>
+            <div class="error-detail" id="errorDetail"></div>
+            <button class="retry-button" id="retryButton">重新尝试</button>
+        </div>
+        
+        <!-- 控制区域卡片 -->
+        <div class="control-card">
+            <div class="input-group">
+                <div class="input-container">
+                    <label for="shopSelect">选择店铺ID</label>
+                    <select id="shopSelect">
+                        <option value="">-- 请选择店铺 --</option>
+                        <!-- 选项将通过JS动态加载 -->
+                    </select>
+                </div>
+                
+                <div class="divider">或</div>
+                
+                <div class="input-container">
+                    <label for="shopIdInput">手动输入店铺ID</label>
+                    <input type="text" id="shopIdInput" placeholder="输入店铺ID">
+                </div>
+                
+                <button id="loadDataButton">
+                    <span>分析销售趋势</span>
+                    <div class="button-loader" id="buttonLoader"></div>
+                </button>
+            </div>
+        </div>
+        
+        <!-- 加载状态 -->
+        <div class="loading-spinner" id="loadingSpinner">
+            <div class="spinner"></div>
+            <div class="loading-text">正在加载销售数据，请稍候...</div>
+        </div>
+        
+        <!-- 图表容器 -->
+        <div id="chart-container" style="display: none;">
+            <div class="chart-header">
+                <h2 id="chartTitle">店铺日销量趋势图</h2>
+                <div class="chart-info">
+                    <div><span style="color:var(--primary);">●</span> 蓝色：销量持平</div>
+                    <div><span style="color:var(--success);">●</span> 绿色：销量上涨</div>
+                    <div><span style="color:var(--danger);">●</span> 红色：销量下降</div>
+                </div>
+            </div>
+            <div class="chart-content">
+                <canvas id="salesChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- 统计信息卡片 -->
+        <div class="stats-grid" id="statsContainer">
+            <!-- 统计信息将在这里动态生成 -->
+        </div>
+        
+        <footer>
+            <p>数据最后更新时间：<span id="updateTime">-</span></p>
+            <p>© 2025 店铺销售分析系统</p>
+        </footer>
+    </div>
+
+    <script>
+        // 主应用状态
+        const AppState = {
+            salesChart: null,
+            salesData: [],
+            isShopListLoaded: false,
+            lastUpdateTime: null
+        };
+        
+        // DOM元素引用
+        const DOM = {
+            shopSelect: document.getElementById('shopSelect'),
+            shopIdInput: document.getElementById('shopIdInput'),
+            loadDataButton: document.getElementById('loadDataButton'),
+            buttonLoader: document.getElementById('buttonLoader'),
+            loadingSpinner: document.getElementById('loadingSpinner'),
+            chartContainer: document.getElementById('chart-container'),
+            salesChart: document.getElementById('salesChart'),
+            statsContainer: document.getElementById('statsContainer'),
+            chartTitle: document.getElementById('chartTitle'),
+            errorContainer: document.getElementById('errorContainer'),
+            errorDetail: document.getElementById('errorDetail'),
+            retryButton: document.getElementById('retryButton'),
+            updateTime: document.getElementById('updateTime')
+        };
+        
+        // 初始化页面
+        function initializeApp() {
+            // 更新最后更新时间
+            const now = new Date();
+            AppState.lastUpdateTime = now;
+            DOM.updateTime.textContent = now.toLocaleString('zh-CN');
+            
+            // 绑定事件监听器
+            DOM.loadDataButton.addEventListener('click', loadData);
+            DOM.retryButton.addEventListener('click', loadData);
+            
+            // 初始状态设置
+            DOM.errorContainer.style.display = 'none';
+            DOM.chartContainer.style.display = 'none';
+            DOM.loadingSpinner.style.display = 'none';
+            
+            // 延迟加载店铺列表
+            setTimeout(loadShopList, 500);
+        }
+        
+        // 加载店铺列表（按需延迟加载）
+        function loadShopList() {
+            if (AppState.isShopListLoaded) return;
+            
+            // 显示加载状态
+            const defaultOption = DOM.shopSelect.querySelector('option');
+            if (defaultOption) {
+                defaultOption.textContent = '正在加载店铺列表...';
+            }
+            
+            fetch('http://localhost:8080/api/sales/shopIds')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('获取店铺列表失败');
+                    }
+                    return response.json();
+                })
+                .then(shopIds => {
+                    // 清除现有选项
+                    DOM.shopSelect.innerHTML = '';
+                    
+                    // 添加默认选项
+                    const defaultOption = document.createElement('option');
+                    defaultOption.value = '';
+                    defaultOption.textContent = '-- 请选择店铺 --';
+                    DOM.shopSelect.appendChild(defaultOption);
+                    
+                    // 添加店铺ID选项
+                    shopIds.forEach(shopId => {
+                        const option = document.createElement('option');
+                        option.value = shopId;
+                        option.textContent = shopId;
+                        DOM.shopSelect.appendChild(option);
+                    });
+                    
+                    AppState.isShopListLoaded = true;
+                })
+                .catch(error => {
+                    console.error('获取店铺列表错误:', error);
+                    const defaultOption = DOM.shopSelect.querySelector('option');
+                    if (defaultOption) {
+                        defaultOption.textContent = '加载失败，点击重试';
+                    }
+                });
+        }
+        
+        // 加载销售数据
+        function loadData() {
+            // 获取店铺ID
+            let shopId = DOM.shopSelect.value;
+            if (!shopId) {
+                shopId = DOM.shopIdInput.value.trim();
+            }
+            
+            if (!shopId) {
+                showError('请输入或选择店铺ID');
+                return;
+            }
+            
+            // 重置状态
+            hideError();
+            if (AppState.salesChart) {
+                AppState.salesChart.destroy();
+            }
+            
+            // 显示加载状态
+            DOM.chartContainer.style.display = 'none';
+            DOM.statsContainer.innerHTML = '';
+            DOM.chartTitle.textContent = `店铺日销量趋势图 - ID: ${shopId}`;
+            
+            toggleLoading(true);
+            
+            fetch(`http://localhost:8080/api/sales/trend?shopId=${shopId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`查询失败: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.length === 0) {
+                        showError('未找到该店铺的销售数据');
+                        toggleLoading(false);
+                        return;
+                    }
+                    
+                    // 存储数据用于后续处理
+                    AppState.salesData = data;
+                    
+                    // 更新视图
+                    renderChart(data);
+                    updateStatsCards(data);
+                    
+                    // 隐藏加载状态，显示结果
+                    toggleLoading(false);
+                    DOM.chartContainer.style.display = 'flex';
+                    
+                    // 更新最后更新时间
+                    const now = new Date();
+                    AppState.lastUpdateTime = now;
+                    DOM.updateTime.textContent = now.toLocaleString('zh-CN');
+                })
+                .catch(error => {
+                    console.error('请求错误:', error);
+                    toggleLoading(false);
+                    showError(`加载失败: ${error.message}`);
+                });
+        }
+        
+        // 渲染销售图表
+        function renderChart(data) {
+            const ctx = DOM.salesChart.getContext('2d');
+            
+            // 处理日期格式
+            const labels = data.map(item => {
+                const dateStr = item.date.toString();
+                return `${dateStr.substring(0,4)}-${dateStr.substring(4,6)}-${dateStr.substring(6,8)}`;
+            });
+            
+            const salesValues = data.map(item => item.sales);
+            
+            // 计算每日销量变化（百分比）
+            const changes = [];
+            for (let i = 0; i < data.length; i++) {
+                if (i === 0) {
+                    changes.push(null);
+                } else {
+                    const change = ((data[i].sales - data[i-1].sales) / data[i-1].sales) * 100;
+                    changes.push(change);
+                }
+            }
+            
+            // 延迟渲染确保DOM已准备好
+            setTimeout(() => {
+                AppState.salesChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: '日销量',
+                            data: salesValues,
+                            backgroundColor: function(context) {
+                                const index = context.dataIndex;
+                                if (index === 0) return '#3498db';
+                                const value = changes[index];
+                                
+                                if (value > 0) return 'rgba(39, 174, 96, 0.7)';
+                                if (value < 0) return 'rgba(231, 76, 60, 0.7)';
+                                return '#3498db';
+                            },
+                            borderColor: function(context) {
+                                const index = context.dataIndex;
+                                if (index === 0) return '#2980b9';
+                                const value = changes[index];
+                                
+                                if (value > 0) return 'rgba(39, 174, 96, 1)';
+                                if (value < 0) return 'rgba(231, 76, 60, 1)';
+                                return '#2980b9';
+                            },
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            hoverBackgroundColor: function(context) {
+                                const index = context.dataIndex;
+                                if (index === 0) return '#2c81bd';
+                                const value = changes[index];
+                                
+                                if (value > 0) return 'rgba(39, 174, 96, 0.9)';
+                                if (value < 0) return 'rgba(231, 76, 60, 0.9)';
+                                return '#2c81bd';
+                            },
+                            hoverBorderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `店铺销售趋势 (ID: ${DOM.shopSelect.value || DOM.shopIdInput.value})`,
+                                font: {
+                                    size: 18,
+                                    weight: 'bold'
+                                },
+                                padding: {
+                                    top: 10,
+                                    bottom: 20
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `销量: ${context.parsed.y}`;
+                                    },
+                                    afterLabel: function(context) {
+                                        const index = context.dataIndex;
+                                        if (index === 0) return '第一天无对比数据';
+                                        
+                                        const change = changes[index];
+                                        const prevValue = salesValues[index - 1];
+                                        const changeValue = salesValues[index] - prevValue;
+                                        const changePercent = Math.abs(Math.round(change * 10) / 10);
+                                        
+                                        if (change > 0) {
+                                            return `↑ 较前日增加: ${changeValue} (${changePercent}%)`;
+                                        }
+                                        if (change < 0) {
+                                            return `↓ 较前日减少: ${Math.abs(changeValue)} (${changePercent}%)`;
+                                        }
+                                        return `→ 与昨日持平`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: {
+                                    display: false
+                                },
+                                ticks: {
+                                    maxRotation: 45,
+                                    minRotation: 45,
+                                    font: {
+                                        size: 12
+                                    }
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }, 100);
+        }
+        
+        // 更新统计卡片
+        function updateStatsCards(data) {
+            // 计算统计数据
+            const totalSales = data.reduce((sum, day) => sum + day.sales, 0);
+            const avgSales = Math.round(totalSales / data.length);
+            
+            const maxSale = Math.max(...data.map(d => d.sales));
+            const minSale = Math.min(...data.map(d => d.sales));
+            
+            // 计算销量变化天数
+            let increaseDays = 0;
+            let decreaseDays = 0;
+            
+            for (let i = 1; i < data.length; i++) {
+                if (data[i].sales > data[i-1].sales) increaseDays++;
+                else if (data[i].sales < data[i-1].sales) decreaseDays++;
+            }
+            
+            // 格式化日期函数
+            const formatDate = (dateStr) => {
+                const year = dateStr.substring(0,4);
+                const month = dateStr.substring(4,6);
+                const day = dateStr.substring(6,8);
+                return `${year}-${month}-${day}`;
+            };
+            
+            // 生成统计卡片
+            DOM.statsContainer.innerHTML = `
+                <div class="stat-card">
+                    <h3>总销量</h3>
+                    <div class="stat-value">${totalSales.toLocaleString()}</div>
+                    <div class="stat-note">全部日期销售总和</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>日均销量</h3>
+                    <div class="stat-value">${avgSales.toLocaleString()}</div>
+                    <div class="stat-note">平均每日销售数量</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>最高单日销量</h3>
+                    <div class="stat-value increase">${maxSale.toLocaleString()}</div>
+                    <div class="stat-note">日期: ${formatDate(data.find(d => d.sales === maxSale).date)}</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>最低单日销量</h3>
+                    <div class="stat-value decrease">${minSale.toLocaleString()}</div>
+                    <div class="stat-note">日期: ${formatDate(data.find(d => d.sales === minSale).date)}</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>销量上涨天数</h3>
+                    <div class="stat-value increase">${increaseDays} 天</div>
+                    <div class="stat-note">较前一日增长</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>销量下降天数</h3>
+                    <div class="stat-value decrease">${decreaseDays} 天</div>
+                    <div class="stat-note">较前一日减少</div>
+                </div>
+            `;
+        }
+        
+        // 显示错误信息
+        function showError(message) {
+            DOM.errorDetail.textContent = message;
+            DOM.errorContainer.style.display = 'block';
+        }
+        
+        // 隐藏错误信息
+        function hideError() {
+            DOM.errorContainer.style.display = 'none';
+        }
+        
+        // 切换加载状态
+        function toggleLoading(isLoading) {
+            if (isLoading) {
+                DOM.buttonLoader.style.display = 'block';
+                DOM.loadingSpinner.style.display = 'block';
+                DOM.loadDataButton.disabled = true;
+                DOM.loadDataButton.querySelector('span').style.opacity = '0.5';
+            } else {
+                DOM.buttonLoader.style.display = 'none';
+                DOM.loadingSpinner.style.display = 'none';
+                DOM.loadDataButton.disabled = false;
+                DOM.loadDataButton.querySelector('span').style.opacity = '1';
+            }
+        }
+        
+        // 页面加载完成后初始化应用
+        window.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Elasticsearch 连接配置
+elasticsearch:
+  host: localhost
+  port: 9200
+  scheme: http
+
+# 禁用 Spring Boot 启动横幅
+spring:
+  main:
+    banner-mode: "off"
+  application:
+    name: "demo2-test"
