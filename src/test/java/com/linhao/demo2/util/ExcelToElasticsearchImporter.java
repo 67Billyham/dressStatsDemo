@@ -37,7 +37,7 @@ public class ExcelToElasticsearchImporter {
             if (row == null) continue;
 
             Map<String, Object> doc = new HashMap<>();
-            doc.put("shop_id", getLongValue(row.getCell(0))); // 店鋪ID
+            doc.put("shop_id", getLongValue(row.getCell(0))); // 店铺ID
             doc.put("item_id", getLongValue(row.getCell(1))); // 商品ID
             doc.put("item_title", getStringValue(row.getCell(2))); // 商品标题
             doc.put("sales_day", getStringValue(row.getCell(3))); // 销售日期

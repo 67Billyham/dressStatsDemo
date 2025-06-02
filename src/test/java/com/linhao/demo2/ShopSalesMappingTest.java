@@ -30,7 +30,7 @@ public class ShopSalesMappingTest {
     void createMappingForShopSales() throws IOException {
         String indexName = "shop_sales";
 
-        // 1. 检查索引是否存在
+        // 1. 创建索引（避免重复创建）
         if (!esClient.indices().exists(new GetIndexRequest().indices(indexName), RequestOptions.DEFAULT)) {
             CreateIndexRequest createRequest = new CreateIndexRequest(indexName)
                     .settings(Settings.builder()

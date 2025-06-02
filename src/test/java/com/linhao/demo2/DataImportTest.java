@@ -13,7 +13,7 @@ public class DataImportTest {
 
     @Test
     public void importExcelData() throws Exception {
-        String filePath = "D:\\20250506NewEdgeDownload\\（后端实习）商品每日销量样例数据.xlsx"; // 或使用ClassPathResource获取资源文件
+        String filePath = "D:\\20250506NewEdgeDownload\\（后端实习）商品每日销量样例数据.xlsx";
 
         ExcelToElasticsearchImporter importer = new ExcelToElasticsearchImporter(esClient);
         importer.importData(filePath);

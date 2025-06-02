@@ -10,19 +10,13 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class TestElasticConfig {
 
-    @Value("${elasticsearch.host}")
-    private String host;
-
-    @Value("${elasticsearch.port}")
-    private int port;
-
-    @Value("${elasticsearch.scheme}")
-    private String scheme;
+    @Value("${spring.elasticsearch.rest.uris}")
+    private String elasticsearchUrl;
 
     @Bean(destroyMethod = "close")
     public RestHighLevelClient elasticsearchClient() {
         return new RestHighLevelClient(
-                RestClient.builder(new HttpHost(host, port, scheme))
+                RestClient.builder(HttpHost.create(elasticsearchUrl))
         );
     }
 }
