@@ -1,4 +1,4 @@
-package com.linhao.demo2;
+package com.linhao.demo2.config;
 
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
